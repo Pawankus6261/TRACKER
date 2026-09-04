@@ -7,19 +7,23 @@ import { DualStreamGPSTracker, isBetterLocation, evaluateTargetAccuracy } from '
 import { TrackingWebSocketClient } from '../services/websocket';
 import { stopSharing, getPublicSession } from '../services/api';
 import { copyToClipboard } from '../services/clipboard';
-import { AlertCircle, MapPinOff, RefreshCw, CheckCircle2, Radio, Copy, Check, HelpCircle } from 'lucide-react';
+import { AlertCircle, MapPinOff, RefreshCw, CheckCircle2, Radio, Copy, Check, HelpCircle, Download } from 'lucide-react';
 
 export const PublicTracking = ({ token }) => {
   const [session, setSession] = useState(null);
-  const [status, setStatus] = useState('INITIALIZING'); // INITIALIZING, SEARCHING, LOW_ACCURACY, LIVE, STOPPED, ENDED, ERROR
+  const [status, setStatus] = useState('INITIALIZING');
   const [currentLocation, setCurrentLocation] = useState(null);
   const [bestAccuracy, setBestAccuracy] = useState(null);
   const [quality, setQuality] = useState('Unknown');
   const [errorMessage, setErrorMessage] = useState('');
   const [hasStarted, setHasStarted] = useState(false);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [installDone, setInstallDone] = useState(false);
 
   const trackerRef = useRef(null);
   const wsClientRef = useRef(null);
+  const deferredInstallPrompt = useRef(null);
+
   const bestLocationRef = useRef(null);
 
   // Validate session on load
@@ -40,6 +44,28 @@ export const PublicTracking = ({ token }) => {
       cleanup();
     };
   }, [token]);
+
+  // Capture the PWA install prompt (Android Chrome fires this automatically)
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      deferredInstallPrompt.current = e;
+      setShowInstallBanner(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallPWA = async () => {
+    if (!deferredInstallPrompt.current) return;
+    deferredInstallPrompt.current.prompt();
+    const { outcome } = await deferredInstallPrompt.current.userChoice;
+    if (outcome === 'accepted') {
+      setInstallDone(true);
+      setShowInstallBanner(false);
+    }
+    deferredInstallPrompt.current = null;
+  };
 
   const cleanup = () => {
     if (trackerRef.current) {
@@ -248,12 +274,75 @@ export const PublicTracking = ({ token }) => {
             </div>
           )}
 
+          {/* PWA Install Banner: shown when Android Chrome offers install */}
+          {showInstallBanner && !installDone && (
+            <div
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+                borderRadius: '14px',
+                padding: '14px 16px',
+                marginBottom: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}
+            >
+              <img src="/icon-512.png" alt="app" style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginBottom: 2 }}>
+                  Install Live Tracker
+                </div>
+                <div style={{ fontSize: '11.5px', color: '#94A3B8', lineHeight: 1.35 }}>
+                  Track in background even when Chrome is closed
+                </div>
+              </div>
+              <button
+                onClick={handleInstallPWA}
+                style={{
+                  background: '#3B82F6',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '7px 12px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  flexShrink: 0,
+                }}
+              >
+                <Download size={13} /> Install
+              </button>
+            </div>
+          )}
+
+          {/* Background tracking active notice */}
+          {installDone && (
+            <div style={{
+              width: '100%',
+              background: '#ECFDF5',
+              border: '1px solid #A7F3D0',
+              borderRadius: '10px',
+              padding: '10px 14px',
+              marginBottom: '14px',
+              fontSize: '12.5px',
+              color: '#065F46',
+              fontWeight: 600,
+            }}>
+              ✅ App installed! Tracking continues in background even with screen off.
+            </div>
+          )}
+
           {/* Section 26: Stop Sharing Control */}
           <div style={{ width: '100%' }}>
             <TrackingControls onStopSharing={handleStop} isOwner={false} isLive={true} />
           </div>
         </div>
       )}
+
 
       {/* 3. Error: Permission Denied or Insecure Context */}
       {status === 'ERROR_DENIED' && (
