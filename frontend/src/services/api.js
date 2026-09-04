@@ -1,18 +1,25 @@
+// ── Deployed URLs ────────────────────────────────────────────
+const RENDER_BACKEND = 'https://tracker-pikc.onrender.com';
+const VERCEL_FRONTEND = 'https://frontend-pi-gules-80.vercel.app';
+
 export const getBackendBaseUrl = () => {
   const hostname = window.location.hostname;
+  // Local dev → hit local FastAPI directly
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return `${window.location.protocol}//${hostname}:8000`;
   }
-  return '';
+  // Any other deployment (Vercel, etc.) → point to Render backend
+  return RENDER_BACKEND;
 };
 
 export const getWebSocketUrl = (endpointPath) => {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const hostname = window.location.hostname;
-  const host = (hostname === 'localhost' || hostname === '127.0.0.1')
-    ? `${hostname}:8000`
-    : window.location.host;
-  return `${protocol}//${host}${endpointPath}`;
+  // Local dev
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return `ws://${hostname}:8000${endpointPath}`;
+  }
+  // Production: always wss:// to Render
+  return `wss://tracker-pikc.onrender.com${endpointPath}`;
 };
 
 const API_BASE = `${getBackendBaseUrl()}/api`;

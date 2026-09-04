@@ -14,10 +14,16 @@ class Settings:
     
     # CORS Origins
     CORS_ORIGINS: List[str] = [
+        # Local development
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
-        "*"
+        # Production: Vercel frontend
+        "https://frontend-pi-gules-80.vercel.app",
+        # Allow all Vercel preview deployments (*.vercel.app)
+        "https://*.vercel.app",
+        # Render backend self-origin
+        "https://tracker-pikc.onrender.com",
     ]
     
     # Rate limiting for incoming location pings (minimum time in seconds between pings per token)
